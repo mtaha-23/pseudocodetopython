@@ -47,6 +47,29 @@ def load_model():
         # Model is in the current directory
         model_dir = Path(".")
         
+        # Check if required model files exist
+        required_files = ["config.json", "tokenizer_config.json", "vocab.json"]
+        missing_files = [f for f in required_files if not (model_dir / f).exists()]
+        
+        if missing_files:
+            st.error(f"❌ Missing required files: {', '.join(missing_files)}")
+            st.error("Please make sure all model files are in the current directory.")
+            return None, None, None
+        
+        # Check for model file (could be .safetensors or .bin)
+        model_file = None
+        if (model_dir / "model.safetensors").exists():
+            model_file = "model.safetensors"
+        elif (model_dir / "pytorch_model.bin").exists():
+            model_file = "pytorch_model.bin"
+        
+        if not model_file:
+            st.warning("⚠️ Model weight file not found. Checking if files exist in directory...")
+            model_files = list(model_dir.glob("*.safetensors")) + list(model_dir.glob("*.bin"))
+            if model_files:
+                st.info(f"Found model files: {[f.name for f in model_files]}")
+            return None, None, None
+        
         st.info("🔄 Loading model and tokenizer...")
         tokenizer = GPT2Tokenizer.from_pretrained(model_dir)
         model = GPT2LMHeadModel.from_pretrained(model_dir)
@@ -58,9 +81,13 @@ def load_model():
         
         st.success(f"✅ Model loaded successfully on {device.upper()}!")
         return tokenizer, model, device
+    except FileNotFoundError as e:
+        st.error(f"❌ File not found: {str(e)}")
+        st.error("Please make sure all model files are in the current directory.")
+        return None, None, None
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
-        st.error("Please make sure all model files are in the current directory.")
+        st.exception(e)
         return None, None, None
 
 def generate_code(pseudo_code, tokenizer, model, device, max_length=150, temperature=0.7):
